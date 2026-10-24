@@ -1,0 +1,34 @@
+# main 브랜치에 push하면 Firebase Hosting + Firestore 규칙/색인을 자동 배포합니다.
+# 필요한 GitHub 설정 (Settings → Secrets and variables → Actions):
+#   - Secret   FIREBASE_SERVICE_ACCOUNT : 서비스 계정 JSON 키 전체 내용
+#   - Variable FIREBASE_PROJECT_ID      : Firebase 프로젝트 ID
+name: Deploy to Firebase
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Write service account key
+        env:
+          SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: printf '%s' "$SA_KEY" > "$RUNNER_TEMP/sa.json"
+
+      - name: Deploy (hosting + firestore rules/indexes)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: npx -y firebase-tools@15 deploy --only hosting,firestore --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --force

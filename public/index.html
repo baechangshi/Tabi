@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TAB Studio · 악보 목록</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232f6fde'/%3E%3Cg stroke='%23fff' stroke-width='1.6'%3E%3Cpath d='M6 9h20M6 14h20M6 19h20M6 24h20'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f7;color:#16181d;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;font-size:14px}
+header{background:#23252b;color:#fff;position:sticky;top:0;z-index:10}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.hbar{display:flex;align-items:center;gap:12px;height:56px}
+.brand{font-weight:800;font-size:18px;letter-spacing:-.3px;display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none}
+.brand i{display:inline-block;width:22px;height:22px;border-radius:5px;background:#2f6fde;background-image:repeating-linear-gradient(#fff 0 1.4px,transparent 1.4px 5px);background-size:14px 20px;background-position:4px 3px;background-repeat:no-repeat}
+.spacer{flex:1}
+button,.btn{font-family:inherit;font-size:13px;border-radius:7px;padding:7px 12px;cursor:pointer;border:1px solid #d0d4dc;background:#fff;color:#16181d;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+header button{background:#3a3d46;border-color:#4b4f5a;color:#fff}
+button.primary{background:#2f6fde;border-color:#2f6fde;color:#fff}
+.user{display:flex;align-items:center;gap:8px;font-size:13px;color:#d7d9df}
+.user img{width:26px;height:26px;border-radius:50%}
+.newmenu{position:relative}
+.newmenu .menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid #d0d4dc;border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:6px;min-width:170px}
+.newmenu.open .menu{display:block}
+.menu a{display:block;padding:8px 10px;border-radius:6px;color:#16181d;text-decoration:none}
+.menu a:hover{background:#eef2fb}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 14px}
+.filters input[type=search]{flex:1;min-width:220px;padding:9px 12px;border:1px solid #d0d4dc;border-radius:8px;font-size:14px;font-family:inherit}
+.filters select{padding:8px 10px;border:1px solid #d0d4dc;border-radius:8px;font-size:14px;font-family:inherit;background:#fff}
+.filters label{display:flex;gap:6px;align-items:center;color:#444}
+.notice{background:#fff4d6;border:1px solid #f0d58a;color:#6b5200;padding:12px 14px;border-radius:9px;margin-top:20px;line-height:1.6}
+.notice code{background:#fff;padding:1px 5px;border-radius:4px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid #eceef2;vertical-align:middle}
+th{background:#fafbfc;font-weight:600;color:#5a6070;font-size:12.5px}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#f5f8ff}
+.t-title{font-weight:600;color:#16181d}
+.t-artist{color:#6b7180;font-size:12.5px;margin-top:2px}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+.b-guitar{background:#e5efff;color:#1f55b8}
+.b-bass4{background:#ffeede;color:#a1500c}
+.b-bass5{background:#fde4ec;color:#a3164a}
+.muted{color:#8a90a0;font-size:12.5px;white-space:nowrap}
+.mine{font-size:11px;color:#1f9d55;font-weight:700;margin-left:6px}
+.empty{text-align:center;padding:50px 0;color:#8a90a0}
+.more{display:flex;justify-content:center;margin:18px 0 50px}
+@media (max-width:720px){.hide-sm{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hbar">
+    <a class="brand" href="index.html"><i></i>TAB Studio</a>
+    <div class="spacer"></div>
+    <div class="newmenu" id="newMenu">
+      <button class="primary" id="bNew">+ 새 악보 ▾</button>
+      <div class="menu">
+        <a href="editor.html?instrument=guitar">기타 (6줄)</a>
+        <a href="editor.html?instrument=bass4">베이스 (4줄)</a>
+        <a href="editor.html?instrument=bass5">베이스 (5줄)</a>
+      </div>
+    </div>
+    <div id="userBox"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="notice"></div>
+  <div class="filters">
+    <input type="search" id="q" placeholder="제목 · 아티스트 · 작성자 검색">
+    <select id="instrument">
+      <option value="">모든 악기</option>
+      <option value="guitar">기타</option>
+      <option value="bass4">베이스 4줄</option>
+      <option value="bass5">베이스 5줄</option>
+    </select>
+    <select id="sort">
+      <option value="updated">최근 수정순</option>
+      <option value="created">최근 등록순</option>
+      <option value="title">제목순</option>
+    </select>
+    <label id="mineWrap" style="display:none"><input type="checkbox" id="mine">내 악보만</label>
+  </div>
+  <table>
+    <thead><tr><th>제목</th><th>악기</th><th class="hide-sm">튜닝 / BPM</th><th>작성자</th><th class="hide-sm">수정일</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none"></div>
+  <div class="more"><button id="bMore" style="display:none">더 보기</button></div>
+</main>
+
+<script type="module">
+import { enabled, onUser, getUser, signIn, signOutUser, listTabs, INSTRUMENT_NAMES } from './js/firebase.js';
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const TUNING_NAMES = { standard: 'Standard', dropd: 'Drop D', halfdown: '½ step down', wholedown: '1 step down', openg: 'Open G', opend: 'Open D', dadgad: 'DADGAD', high: 'High C' };
+
+$('#bNew').onclick = e => { e.stopPropagation(); $('#newMenu').classList.toggle('open'); };
+document.addEventListener('click', () => $('#newMenu').classList.remove('open'));
+
+let last = null, loading = false, reqId = 0;
+
+function fmtDate(ts) {
+  if (!ts || !ts.toDate) return '';
+  const d = ts.toDate(), now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return '방금 전';
+  if (diff < 3600) return Math.floor(diff / 60) + '분 전';
+  if (diff < 86400) return Math.floor(diff / 3600) + '시간 전';
+  if (diff < 86400 * 7) return Math.floor(diff / 86400) + '일 전';
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function rowHtml(t) {
+  const me = getUser();
+  const tune = [TUNING_NAMES[t.tuning] || t.tuning, t.capo ? `Capo ${t.capo}` : '', t.tempo ? `${t.tempo} BPM` : ''].filter(Boolean).join(' · ');
+  return `<tr data-id="${esc(t.id)}">
+    <td><div class="t-title">${esc(t.title)}${me && me.uid === t.ownerUid ? '<span class="mine">내 악보</span>' : ''}</div>${t.artist ? `<div class="t-artist">${esc(t.artist)}</div>` : ''}</td>
+    <td><span class="badge b-${esc(t.instrument)}">${esc(INSTRUMENT_NAMES[t.instrument] || t.instrument)}</span></td>
+    <td class="muted hide-sm">${esc(tune)}</td>
+    <td>${esc(t.ownerName)}</td>
+    <td class="muted hide-sm">${fmtDate(t.updatedAt)}</td>
+  </tr>`;
+}
+
+async function load(reset) {
+  if (!enabled) return;
+  const my = ++reqId;
+  if (reset) { last = null; $('#rows').innerHTML = ''; }
+  loading = true;
+  $('#empty').style.display = 'none';
+  $('#bMore').style.display = 'none';
+  try {
+    const r = await listTabs({
+      instrument: $('#instrument').value, mine: $('#mine').checked, sort: $('#sort').value,
+      search: $('#q').value, after: last
+    });
+    if (my !== reqId) return;
+    last = r.last;
+    $('#rows').insertAdjacentHTML('beforeend', r.items.map(rowHtml).join(''));
+    if (!$('#rows').children.length) {
+      $('#empty').textContent = ($('#q').value || $('#instrument').value || $('#mine').checked) ? '조건에 맞는 악보가 없습니다.' : '아직 저장된 악보가 없습니다. 첫 악보를 만들어 보세요!';
+      $('#empty').style.display = '';
+    }
+    $('#bMore').style.display = r.hasMore ? '' : 'none';
+  } catch (err) {
+    console.error(err);
+    $('#empty').textContent = '목록을 불러오지 못했습니다: ' + (err.code || err.message) +
+      (String(err.message).includes('index') ? ' (Firestore 색인이 아직 생성 중일 수 있습니다)' : '');
+    $('#empty').style.display = '';
+  } finally { loading = false; }
+}
+
+$('#rows').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-id]');
+  if (tr) location.href = 'editor.html?id=' + encodeURIComponent(tr.dataset.id);
+});
+let qT;
+$('#q').addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(() => load(true), 300); });
+$('#instrument').onchange = () => load(true);
+$('#sort').onchange = () => load(true);
+$('#mine').onchange = () => load(true);
+$('#bMore').onclick = () => !loading && load(false);
+
+if (!enabled) {
+  $('#notice').innerHTML = `<div class="notice"><b>Firebase 설정이 아직 없습니다.</b><br>
+    <code>public/js/firebase-config.js</code>에 Firebase 웹 앱 설정값을 넣으면 온라인 저장과 목록이 활성화됩니다.
+    그 전에도 <a href="editor.html">편집기</a>에서 MD/PDF 저장은 사용할 수 있습니다.</div>`;
+}
+
+let lastUid;
+onUser(u => {
+  $('#userBox').innerHTML = !enabled ? '' : u
+    ? `<span class="user">${u.photoURL ? `<img src="${esc(u.photoURL)}" referrerpolicy="no-referrer" alt="">` : ''}${esc(u.displayName || u.email || '')}<button id="bLogout">로그아웃</button></span>`
+    : `<button id="bLogin">Google 로그인</button>`;
+  const li = $('#bLogin'), lo = $('#bLogout');
+  if (li) li.onclick = () => signIn().catch(err => alert('로그인 실패: ' + err.message));
+  if (lo) lo.onclick = () => signOutUser();
+  $('#mineWrap').style.display = u ? '' : 'none';
+  if (!u) $('#mine').checked = false;
+  const uid = u ? u.uid : null;
+  if (uid !== lastUid) { lastUid = uid; load(true); }
+});
+</script>
+</body>
+</html>
