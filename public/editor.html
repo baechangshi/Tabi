@@ -9,6 +9,7 @@
 :root{
   --S:2.5mm;          /* 줄 간격 */
   --N:6;              /* 줄 수 (JS에서 갱신) */
+  --C:16;             /* 마디당 칸 수 (JS에서 갱신) */
   --memoH:3.8mm;
   --chordH:4.2mm;
   --lyricH:5mm;
@@ -51,7 +52,7 @@ body{margin:0;background:#dcdde3;font-family:-apple-system,BlinkMacSystemFont,"A
 .clef{width:var(--clefW);flex:none;padding-top:calc(var(--memoH) + var(--chordH))}
 .measures{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
 .measure{position:relative;min-width:0}
-.staff{position:relative;height:calc(var(--S) * var(--N));display:grid;grid-template-columns:repeat(16,minmax(0,1fr));grid-template-rows:repeat(var(--N),var(--S));padding:0 var(--padR) 0 var(--padL)}
+.staff{position:relative;height:calc(var(--S) * var(--N));display:grid;grid-template-columns:repeat(var(--C),minmax(0,1fr));grid-template-rows:repeat(var(--N),var(--S));padding:0 var(--padR) 0 var(--padL)}
 .clef .staff{display:block;padding:0}
 .ln{position:absolute;left:0;right:0;height:0;border-top:var(--line) solid #000;pointer-events:none}
 .staff::before{content:'';position:absolute;left:0;top:calc(var(--S) * .5);height:calc(var(--S) * (var(--N) - 1));border-left:var(--line) solid #000;pointer-events:none}
@@ -61,13 +62,16 @@ body{margin:0;background:#dcdde3;font-family:-apple-system,BlinkMacSystemFont,"A
 .tablbl span{background:#fff;display:block;text-align:center}
 .tc{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;font-size:2.35mm;line-height:1;cursor:cell;white-space:nowrap;min-width:0;font-family:Arial,Helvetica,sans-serif}
 .tc .v{background:#fff;padding:0 .12mm;letter-spacing:-.08mm;pointer-events:none}
-.chords{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));height:var(--chordH);padding:0 var(--padR) 0 var(--padL)}
+.chords{display:grid;grid-template-columns:repeat(var(--C),minmax(0,1fr));height:var(--chordH);padding:0 var(--padR) 0 var(--padL)}
 .cc{position:relative;font-size:2.9mm;font-weight:700;white-space:nowrap;overflow:visible;display:flex;align-items:flex-end;padding-bottom:.4mm;cursor:text;min-width:0;font-family:Arial,Helvetica,sans-serif}
 .cc span{pointer-events:none;position:relative;z-index:3}
 .memo,.lyric{display:block;width:100%;border:none;outline:none;background:transparent;font-family:inherit;padding:0 0 0 var(--padL);margin:0}
 .memo{height:var(--memoH);font-size:2.5mm;font-style:italic;color:#555}
 .lyric{height:var(--lyricH);font-size:3mm;color:#111}
-.memo::placeholder,.lyric::placeholder,.titleblock input::placeholder{color:#d9d9d9}
+.titleblock input::placeholder{color:#d9d9d9}
+.memo::placeholder,.lyric::placeholder{color:transparent}
+.memo:focus::placeholder,.lyric:focus::placeholder{color:#c8c8c8}
+.memo:hover,.lyric:hover{background:#f6f8fc}
 .memo:focus,.lyric:focus{background:#fff6cc}
 .tc.sel,.cc.sel{background:rgba(47,111,222,.2)}
 .tc.cur,.cc.cur{outline:1.5px solid #e5484d;outline-offset:-1px;z-index:2}
@@ -112,6 +116,7 @@ body.inactive .tc.cur,body.inactive .cc.cur{outline-color:#f4b8ba}
   <div class="grp">
     <label>악기 <select id="instrument"></select></label>
     <label>튜닝 <select id="tuning"></select></label>
+    <label>박자 <select id="timeSig"></select></label>
     <label>카포 <input type="number" id="capo" min="0" max="12" value="0" style="width:48px"></label>
   </div>
   <div class="sep"></div>
@@ -144,7 +149,9 @@ body.inactive .tc.cur,body.inactive .cc.cur{outline-color:#f4b8ba}
 <script>
 (()=>{
 'use strict';
-const COLS=16, MPR=4;
+const MPR=4;
+const TIME_SIGS={'4/4':16,'3/4':12,'2/4':8,'6/8':12}; // 박자별 마디당 칸 수 (16분음표 단위)
+let COLS=16;
 const INSTRUMENTS={
   guitar:{name:'기타 (6줄)',strings:6,tunings:{
     standard:{name:'Standard (E A D G B E)',midi:[64,59,55,50,45,40]},
@@ -172,11 +179,11 @@ const pagesEl=$('#pages');
 
 /* ---------- data ---------- */
 let STR=6;
-const emptyMeasure=(n=STR)=>({memo:'',lyric:'',chords:Array(COLS).fill(''),notes:Array.from({length:n},()=>Array(COLS).fill(''))});
-const newSong=(instrument='guitar')=>{
-  const n=INSTRUMENTS[instrument].strings;
+const emptyMeasure=(n=STR,cols=COLS)=>({memo:'',lyric:'',chords:Array(cols).fill(''),notes:Array.from({length:n},()=>Array(cols).fill(''))});
+const newSong=(instrument='guitar',timeSig='4/4')=>{
+  const n=INSTRUMENTS[instrument].strings,cols=TIME_SIGS[timeSig]||16;
   const rows=Math.floor((269-22)/(3.8+4.2+2.5*n+5+4.5)); // 첫 페이지를 채우는 줄 수
-  return {title:'',artist:'',instrument,tempo:100,tuning:'standard',capo:0,measures:Array.from({length:rows*MPR},()=>emptyMeasure(n))};
+  return {title:'',artist:'',instrument,timeSig,tempo:100,tuning:'standard',capo:0,measures:Array.from({length:rows*MPR},()=>emptyMeasure(n,cols))};
 };
 let song=newSong();
 let dirty=false;
@@ -225,7 +232,7 @@ function paintCell(g,r){
 }
 function staffLines(el){for(let k=0;k<STR;k++){const l=div('ln');l.style.top=`calc(var(--S) * ${k+.5} - var(--line) / 2)`;el.appendChild(l);}}
 function infoText(){
-  const parts=[`Tempo ${song.tempo} BPM`];
+  const parts=[`Tempo ${song.tempo} BPM`,song.timeSig];
   if(song.tuning!=='standard')parts.push('Tuning: '+tun().name);
   if(+song.capo>0)parts.push('Capo '+song.capo);
   return parts.join('   ·   ');
@@ -271,7 +278,8 @@ function buildSystem(row){
 function rowsOnPage(p){const sysH=3.8+4.2+2.5*STR+5+4.5;return Math.floor((269-(p===0?22:0))/sysH);}
 function render(){
   const sy=window.scrollY;
-  STR=inst().strings;document.documentElement.style.setProperty('--N',STR);
+  STR=inst().strings;COLS=TIME_SIGS[song.timeSig]||16;
+  document.documentElement.style.setProperty('--N',STR);document.documentElement.style.setProperty('--C',COLS);
   pagesEl.innerHTML='';cellEls=[];memoEls=[];lyricEls=[];hlEls=[];phEls=[];
   const nRows=song.measures.length/MPR;const pages=[];
   let row=0,p=0;
@@ -290,7 +298,7 @@ function fillTunings(){
   if(!inst().tunings[song.tuning])song.tuning=Object.keys(inst().tunings)[0];
 }
 function syncToolbar(){
-  $('#instrument').value=song.instrument;fillTunings();
+  $('#instrument').value=song.instrument;$('#timeSig').value=song.timeSig;fillTunings();
   $('#tempo').value=song.tempo;$('#tuning').value=song.tuning;$('#capo').value=song.capo;
 }
 function refreshInfo(){const i=$('#info');if(i)i.textContent=infoText();}
@@ -368,6 +376,20 @@ function changeInstrument(key){
   song.instrument=key;undoStack=[];redoStack=[];
   fillTunings();$('#tuning').value=song.tuning;
   STR=n;clampCursor();markDirty();render();refreshInfo();
+}
+
+function changeTimeSig(ts){
+  if(ts===song.timeSig||!TIME_SIGS[ts])return;
+  const n=TIME_SIGS[ts];
+  const lost=n<COLS&&song.measures.some(m=>m.chords.slice(n).some(x=>x)||m.notes.some(r=>r.slice(n).some(x=>x)));
+  if(lost&&!confirm(`마디당 칸 수가 ${COLS} → ${n}칸으로 줄어듭니다. 각 마디 뒤쪽 ${COLS-n}칸의 내용은 사라집니다. 계속할까요?`)){$('#timeSig').value=song.timeSig;return;}
+  const fit=a=>{a=a.slice(0,n);while(a.length<n)a.push('');return a;};
+  for(const m of song.measures){m.chords=fit(m.chords);m.notes=m.notes.map(fit);}
+  // 커서를 같은 마디·칸 위치로 유지
+  const mc=g=>{const m=Math.floor(g/COLS),c=Math.min(g%COLS,n-1);return m*n+c;};
+  cur.g=mc(cur.g);anc.g=mc(anc.g);
+  song.timeSig=ts;undoStack=[];redoStack=[];
+  markDirty();render();refreshInfo();
 }
 
 /* ---------- keyboard ---------- */
@@ -448,6 +470,8 @@ $('#toolbar').addEventListener('mousedown',e=>{if(e.target.closest('button'))e.p
 /* ---------- toolbar ---------- */
 for(const [k,t] of Object.entries(INSTRUMENTS)){const o=document.createElement('option');o.value=k;o.textContent=t.name;$('#instrument').appendChild(o);}
 $('#instrument').addEventListener('change',e=>{changeInstrument(e.target.value);e.target.blur();});
+for(const k of Object.keys(TIME_SIGS)){const o=document.createElement('option');o.value=k;o.textContent=k;$('#timeSig').appendChild(o);}
+$('#timeSig').addEventListener('change',e=>{changeTimeSig(e.target.value);e.target.blur();});
 $('#tempo').addEventListener('input',e=>{const v=parseInt(e.target.value);if(v>=20&&v<=300){song.tempo=v;markDirty();refreshInfo();}});
 $('#tuning').addEventListener('change',e=>{song.tuning=e.target.value;markDirty();refreshInfo();e.target.blur();});
 $('#capo').addEventListener('input',e=>{const v=parseInt(e.target.value);if(v>=0&&v<=12){song.capo=v;markDirty();refreshInfo();}});
@@ -455,7 +479,7 @@ $('#zoom').addEventListener('change',e=>{pagesEl.style.zoom=e.target.value;e.tar
 pagesEl.style.zoom=$('#zoom').value;
 $('#bNew').onclick=()=>{
   if(dirty&&!confirm('저장하지 않은 내용이 사라집니다. 새 악보를 만들까요?'))return;
-  replaceSong(newSong(song.instrument));API.hooks.onReset&&API.hooks.onReset();
+  replaceSong(newSong(song.instrument,song.timeSig));API.hooks.onReset&&API.hooks.onReset();
 };
 $('#bOpen').onclick=()=>$('#fileIn').click();
 $('#bSave').onclick=saveMd;
@@ -474,7 +498,7 @@ function buildMarkdown(){
   const L=[];
   L.push('# '+(song.title||'Untitled'));
   if(song.artist)L.push('','_'+song.artist+'_');
-  L.push('',`- Instrument: ${inst().name}`,`- Tempo: ${song.tempo} BPM`,`- Tuning: ${tun().name}`,`- Capo: ${song.capo}`,'');
+  L.push('',`- Instrument: ${inst().name}`,`- Time: ${song.timeSig}`,`- Tempo: ${song.tempo} BPM`,`- Tuning: ${tun().name}`,`- Capo: ${song.capo}`,'');
   const names=stringNames();const nw=Math.max(...names.map(n=>n.length));
   const lastM=lastContentMeasure();const nRows=Math.max(1,Math.ceil((lastM+1)/MPR));
   for(let row=0;row<nRows;row++){
@@ -517,18 +541,19 @@ async function saveMd(){
 function normalize(d){
   const instrument=INSTRUMENTS[d.instrument]?d.instrument:'guitar';
   const I=INSTRUMENTS[instrument];const n=I.strings;
-  const s=newSong(instrument);
+  const timeSig=TIME_SIGS[d.timeSig]?d.timeSig:'4/4';const cols=TIME_SIGS[timeSig];
+  const s=newSong(instrument,timeSig);
   s.title=String(d.title||'').slice(0,120);s.artist=String(d.artist??d.subtitle??'').slice(0,120);
   s.tempo=Math.min(300,Math.max(20,parseInt(d.tempo)||100));
   s.tuning=I.tunings[d.tuning]?d.tuning:'standard';s.capo=Math.min(12,Math.max(0,parseInt(d.capo)||0));
   const ms=Array.isArray(d.measures)?d.measures:[];
-  s.measures=ms.map(m=>{const e=emptyMeasure(n);if(!m)return e;e.memo=String(m.memo||'');e.lyric=String(m.lyric||'');
-    for(let c=0;c<COLS;c++){e.chords[c]=String((m.chords||[])[c]||'');for(let r=0;r<n;r++)e.notes[r][c]=String(((m.notes||[])[r]||[])[c]||'');}return e;});
-  while(s.measures.length===0||s.measures.length%MPR)s.measures.push(emptyMeasure(n));
+  s.measures=ms.map(m=>{const e=emptyMeasure(n,cols);if(!m)return e;e.memo=String(m.memo||'');e.lyric=String(m.lyric||'');
+    for(let c=0;c<cols;c++){e.chords[c]=String((m.chords||[])[c]||'');for(let r=0;r<n;r++)e.notes[r][c]=String(((m.notes||[])[r]||[])[c]||'');}return e;});
+  while(s.measures.length===0||s.measures.length%MPR)s.measures.push(emptyMeasure(n,cols));
   return s;
 }
 function replaceSong(s){
-  stopPlay(true);song=s;STR=inst().strings;undoStack=[];redoStack=[];cur={g:0,r:0};anc={g:0,r:0};
+  stopPlay(true);song=s;STR=inst().strings;COLS=TIME_SIGS[song.timeSig]||16;undoStack=[];redoStack=[];cur={g:0,r:0};anc={g:0,r:0};
   syncToolbar();render();setClean();
 }
 function loadText(text){
@@ -659,6 +684,7 @@ const API={
   getSong:()=>JSON.parse(JSON.stringify(song)),
   loadSong:d=>replaceSong(normalize(d)),
   newSong:instrument=>replaceSong(newSong(INSTRUMENTS[instrument]?instrument:'guitar')),
+  TIME_SIGS,
   isDirty:()=>dirty,
   setClean,
   isEmpty:()=>song.measures.every(measureEmpty),
